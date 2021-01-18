@@ -3,8 +3,9 @@ require(TMBhelper)
 require(statmod)
 require(boot)
 require(microbenchmark)
-path <- "C:/Users/s1898267/OneDrive - University of Edinburgh/PhD/First Year/Annual Review/Appendix codes"
+path <- "your working directory"
 setwd(path)
+#make sure you put all files including .cpp (C++ files) within the same folder
 
 #Mh Type models
 compile(paste0('Mh_type', '.cpp'))
@@ -110,7 +111,7 @@ cp
 #we set heterogeneity variability as sigma=1, 1.5 and 2.0
 set.seed(2345)
 parameter = list (alpha=rep(-1.5, 8), N=250, sigma=1.0, beta=NULL)
-for (k in 1:iter) {
+for (k in 1:nsim) {
   x <- sim_closed(parameter = parameter, T=8, behaviour=FALSE)
   n <- dim(x)[1]
   B=1000
@@ -303,7 +304,7 @@ source("sim_open.R")
 nsim = 100
 par_l1 = data.frame(beta0 = rep(0,nsim), beta1=rep(0,nsim), se_b0=rep(0,nsim), se_b1=rep(0,nsim))
 par_l2 = data.frame(beta0 = rep(0,nsim), beta1=rep(0,nsim), se_b0=rep(0,nsim), se_b1=rep(0,nsim))
-set.seed(33456)
+set.seed(3456)
 parameters <- list(beta = c(-3, 0.2), mu = NULL, p=0.25, sigma=1.2, gamma=NULL)
 for (i in 1:100) {
   sim <- sim_open(parameters = parameters, N=500, T=10, initial.cov = list(mu=15, sd=2))
