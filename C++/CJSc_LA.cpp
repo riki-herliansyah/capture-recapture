@@ -5,10 +5,10 @@ Type objective_function<Type>::operator() ()
 {
   DATA_MATRIX(x);
   DATA_MATRIX(y);
-  DATA_IVECTOR(l);
-  DATA_IVECTOR(e);
-  DATA_IVECTOR(time_a);
-  DATA_IVECTOR(time_mu);
+  DATA_IVECTOR(la);
+  DATA_IVECTOR(fi);
+  DATA_IVECTOR(timep);
+  DATA_IVECTOR(timecov);
   DATA_INTEGER(model);
 
   PARAMETER_VECTOR(beta);
@@ -21,8 +21,8 @@ Type objective_function<Type>::operator() ()
 
   int k = 0;
   for (int i = 0; i < n; i++){
-        for (int j = (e[i]-1); j < T; j++){
-            if(e[i] == T){
+        for (int j = (fi[i]-1); j < T; j++){
+            if(fi[i] == T){
                 y(i,j) = y(i,j);
             } else {
                 if(y(i,j) == 0){
@@ -52,11 +52,11 @@ Type objective_function<Type>::operator() ()
   PARAMETER_VECTOR(mu);
   vector<Type> alphat(T-1);
   for (int j = 0; j < T-1; j++){
-    alphat[j] = alpha(time_a[j]);
+    alphat[j] = alpha(timep[j]);
   }
   vector<Type> mut(T);
   for (int j = 0; j < T-1; j++){
-    mut[j] = mu(time_mu[j]);
+    mut[j] = mu(timecov[j]);
   }
   for (int i = 0; i < n; i++){
         for (int j = 0; j < T-1; j++){
@@ -65,7 +65,7 @@ Type objective_function<Type>::operator() ()
         }
   }
     for (int i = 0; i < n; i++){
-        for (int j = e[i]; j < T; j++){
+        for (int j = fi[i]; j < T; j++){
             Type mean = y(i,j-1) + mut[j-1];
             nll -= dnorm(y(i,j), mean, sigma, true);
         }
@@ -76,7 +76,7 @@ Type objective_function<Type>::operator() ()
   PARAMETER_VECTOR(alpha);
   vector<Type> alphat(T-1);
   for (int j = 0; j < T-1; j++){
-    alphat[j] = alpha(time_a[j]);
+    alphat[j] = alpha(timep[j]);
   }
   for (int i = 0; i < n; i++){
         for (int j = 0; j < T-1; j++){
@@ -85,7 +85,7 @@ Type objective_function<Type>::operator() ()
         }
   }
     for (int i = 0; i < n; i++){
-        for (int j = e[i]; j < T; j++){
+        for (int j = fi[i]; j < T; j++){
             Type mean = y(i,j-1);
             nll -= dnorm(y(i,j), mean, sigma, true);
         }
@@ -97,7 +97,7 @@ Type objective_function<Type>::operator() ()
   PARAMETER_VECTOR(mu);
   vector<Type> mut(T);
   for (int j = 0; j < T-1; j++){
-    mut[j] = mu(time_mu[j]);
+    mut[j] = mu(timecov[j]);
   }
   for (int i = 0; i < n; i++){
         for (int j = 0; j < T-1; j++){
@@ -106,7 +106,7 @@ Type objective_function<Type>::operator() ()
         }
   }
     for (int i = 0; i < n; i++){
-        for (int j = e[i]; j < T; j++){
+        for (int j = fi[i]; j < T; j++){
             Type mean = y(i,j-1) + mut(j-1);
             nll -= dnorm(y(i,j), mean, sigma, true);
         }
@@ -122,7 +122,7 @@ Type objective_function<Type>::operator() ()
         }
   }
     for (int i = 0; i < n; i++){
-        for (int j = e[i]; j < T; j++){
+        for (int j = fi[i]; j < T; j++){
             Type mean = y(i,j-1);
             nll -= dnorm(y(i,j), mean, sigma, true);
         }
@@ -134,18 +134,18 @@ Type objective_function<Type>::operator() ()
             chi[T-1] = 1;
             chi[T-j-1] = (1-phi(i,T-j-1)) + phi(i,T-j-1)*(1-p(i,T-j-1))*chi[T-j];
         }
-        if(e[i] == l[i]){
-            nll -= log(chi(l[i]-1));
+        if(fi[i] == la[i]){
+            nll -= log(chi(la[i]-1));
         } else {
             Type logp = 0.0;
-            for (int j = e[i]; j < l[i]; j++){
+            for (int j = fi[i]; j < la[i]; j++){
                 logp += x(i, j)*log(p(i,j-1)) + (1-x(i,j))*log(1-p(i,j-1));
             }
             Type logph = 0.0;
-            for (int j = (e[i]-1); j < (l[i]-1); j++){
+            for (int j = (fi[i]-1); j < (la[i]-1); j++){
                 logph += log(phi(i,j));
             }
-            nll -= logph + logp + log(chi(l[i]-1));
+            nll -= logph + logp + log(chi(la[i]-1));
         }
     }
     return nll;
