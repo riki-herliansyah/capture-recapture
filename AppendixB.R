@@ -42,7 +42,7 @@ sapply(pN3, quantile, 0.975)
 
 #the first simulation study in Section 4.1 
 #we use a nonparametric Bootstrap to compute the confidence interval
-source(sim_closed)
+source("sim_closed.R")
 iter = 100
 lower.la2 = data.frame(log_sigma=rep(0,iter), N=rep(0,iter)) 
 upper.la2 = data.frame(log_sigma=rep(0,iter), N=rep(0,iter)) 
