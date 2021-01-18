@@ -8,10 +8,10 @@ Type objective_function<Type>::operator() ()
   DATA_MATRIX(y);
   DATA_VECTOR(Bj);
   DATA_VECTOR(Bs);
-  DATA_IVECTOR(e);
+  DATA_IVECTOR(fi);
   DATA_IVECTOR(la);
-  DATA_IVECTOR(time_a);
-  DATA_IVECTOR(time_mu);
+  DATA_IVECTOR(timep);
+  DATA_IVECTOR(timecov);
   DATA_INTEGER(model);
 
   PARAMETER_VECTOR(beta);
@@ -32,18 +32,18 @@ Type objective_function<Type>::operator() ()
   PARAMETER_VECTOR(mu);
   vector<Type> alphat(T-1);
   for (int j = 0; j < T-1; j++){
-    alphat[j] = alpha(time_a[j]);
+    alphat[j] = alpha(timep[j]);
   }
   vector<Type> mut(T-1);
   for (int j = 0; j < T-1; j++){
-    mut[j] = mu(time_mu[j]);
+    mut[j] = mu(timecov[j]);
   }
   vector<Type> p = invlogit(alphat);
   for (int i = 0; i < n; i++){
         matrix<Type> delta(1,m+2);
         delta.fill(0.0);
         for (int k = 1; k < m+1; k++) {
-            if (y(i,e[i]-1) < Bj[k]) {
+            if (y(i,fi[i]-1) < Bj[k]) {
                 delta(0,k-1) = 1;
                 break;
             }
@@ -53,7 +53,7 @@ Type objective_function<Type>::operator() ()
         for (int k = 0; k < m+2; k++) {
             GQ(k,k) = 1.0;
         }
-        for (int j = e[i]; j < T; j++){
+        for (int j = fi[i]; j < T; j++){
             matrix<Type> Q(m+2,m+2);
             Q.fill(0.0);
             for (int k = 0; k < m; k++) {
@@ -141,14 +141,14 @@ Type objective_function<Type>::operator() ()
   PARAMETER_VECTOR(alpha);
   vector<Type> alphat(T-1);
   for (int j = 0; j < T-1; j++){
-    alphat[j] = alpha(time_a[j]);
+    alphat[j] = alpha(timep[j]);
   }
   vector<Type> p = invlogit(alphat);
   for (int i = 0; i < n; i++){
         matrix<Type> delta(1,m+2);
         delta.fill(0.0);
         for (int k = 1; k < m+1; k++) {
-            if (y(i,e[i]-1) < Bj[k]) {
+            if (y(i,fi[i]-1) < Bj[k]) {
                 delta(0,k-1) = 1;
                 break;
             }
@@ -158,7 +158,7 @@ Type objective_function<Type>::operator() ()
         for (int k = 0; k < m+2; k++) {
             GQ(k,k) = 1.0;
         }
-        for (int j = e[i]; j < T; j++){
+        for (int j = fi[i]; j < T; j++){
             matrix<Type> Q(m+2,m+2);
             Q.fill(0.0);
             for (int k = 0; k < m; k++) {
@@ -247,13 +247,13 @@ Type objective_function<Type>::operator() ()
   PARAMETER_VECTOR(mu);
   vector<Type> mut(T-1);
   for (int j = 0; j < T-1; j++){
-    mut[j] = mu(time_mu[j]);
+    mut[j] = mu(timecov[j]);
   }
   for (int i = 0; i < n; i++){
         matrix<Type> delta(1,m+2);
         delta.fill(0.0);
         for (int k = 1; k < m+1; k++) {
-            if (y(i,e[i]-1) < Bj[k]) {
+            if (y(i,fi[i]-1) < Bj[k]) {
                 delta(0,k-1) = 1;
                 break;
             }
@@ -263,7 +263,7 @@ Type objective_function<Type>::operator() ()
         for (int k = 0; k < m+2; k++) {
             GQ(k,k) = 1.0;
         }
-        for (int j = e[i]; j < T; j++){
+        for (int j = fi[i]; j < T; j++){
             matrix<Type> Q(m+2,m+2);
             Q.fill(0.0);
             for (int k = 0; k < m; k++) {
@@ -353,7 +353,7 @@ Type objective_function<Type>::operator() ()
         matrix<Type> delta(1,m+2);
         delta.fill(0.0);
         for (int k = 1; k < m+1; k++) {
-            if (y(i,e[i]-1) < Bj[k]) {
+            if (y(i,fi[i]-1) < Bj[k]) {
                 delta(0,k-1) = 1;
                 break;
             }
@@ -363,7 +363,7 @@ Type objective_function<Type>::operator() ()
         for (int k = 0; k < m; k++) {
             GQ(k,k) = 1.0;
         }
-        for (int j = e[i]; j < T; j++){
+        for (int j = fi[i]; j < T; j++){
             matrix<Type> Q(m+2,m+2);
             Q.fill(0.0);
             for (int k = 0; k < m; k++) {
