@@ -41,21 +41,21 @@ sapply(pN3, quantile, 0.975)
 
 #the first simulation study in Section 4.1 
 #we use a nonparametric Bootstrap to compute the confidence interval
-source(sim_closed)
-iter = 100
-lower.la2 = data.frame(log_sigma=rep(0,iter), N=rep(0,iter)) 
-upper.la2 = data.frame(log_sigma=rep(0,iter), N=rep(0,iter)) 
-param.la2 = data.frame(log_sigma=rep(0,iter), N=rep(0,iter)) 
-lower.la4 = data.frame(log_sigma=rep(0,iter), N=rep(0,iter)) 
-upper.la4 = data.frame(log_sigma=rep(0,iter), N=rep(0,iter)) 
-param.la4 = data.frame(log_sigma=rep(0,iter), N=rep(0,iter)) 
-lower.ghq = data.frame(log_sigma=rep(0,iter), N=rep(0,iter)) 
-upper.ghq = data.frame(log_sigma=rep(0,iter), N=rep(0,iter)) 
-param.ghq = data.frame(log_sigma=rep(0,iter), N=rep(0,iter))
+source("sim_closed.R")
+nsim = 100
+lower.la2 = data.frame(log_sigma=rep(0,nsim), N=rep(0,nsim)) 
+upper.la2 = data.frame(log_sigma=rep(0,nsim), N=rep(0,nsim)) 
+param.la2 = data.frame(log_sigma=rep(0,nsim), N=rep(0,nsim)) 
+lower.la4 = data.frame(log_sigma=rep(0,nsim), N=rep(0,nsim)) 
+upper.la4 = data.frame(log_sigma=rep(0,nsim), N=rep(0,nsim)) 
+param.la4 = data.frame(log_sigma=rep(0,nsim), N=rep(0,nsim)) 
+lower.ghq = data.frame(log_sigma=rep(0,nsim), N=rep(0,nsim)) 
+upper.ghq = data.frame(log_sigma=rep(0,nsim), N=rep(0,nsim)) 
+param.ghq = data.frame(log_sigma=rep(0,nsim), N=rep(0,nsim))
 
 set.seed(2345)
 parameter = list (alpha=rep(-1.0, 6), N=100, sigma=0.75, beta=0.75)
-for (k in 1:iter) {
+for (k in 1:nsim) {
   x <- sim_closed(parameter = parameter, T=6, behaviour=FALSE)
   n <- dim(x)[1]
   B=1000
@@ -170,7 +170,7 @@ microbenchmark('LA2' = {
 },'LA4' = {
   mtbh(x, method = 'LA4', model = 'Mh', niter = 5)
 },'GHQ' = {
-  mtbh(x, method = 'LA2', model = 'Mh', npoints = 50)
+  mtbh(x, method = 'GHQ', model = 'Mh', npoints = 50)
 }, times = 100)
 
 #CJS with continuous covariates
@@ -180,8 +180,8 @@ compile(paste0('CJSc_LA', '.cpp'))
 dyn.load(paste0('CJSc_LA'))
 compile(paste0('CJSc_MI', '.cpp'))
 dyn.load(paste0('CJSc_MI'))
-source("CJSc.R")
 
+source("CJSc.R")
 xvole <- read.table("volecap.dat", quote="\"", comment.char="")
 yvole <- read.table("voleweight.dat", quote="\"", comment.char="")
 
@@ -268,13 +268,13 @@ for (r in 1:B) {
     }
   }
   par = optim(param, ll, y=yb, fi=fi, timecov=timecov)$par
-  mut = par[-4]; sm = exp(par[4])
+  mu = par[-4]; sm = exp(par[4])
   wnew = yb
   for (q in 1:20) {
     for (i in 1:n) {
-      for (j in (fi[i]+1):t) {
+      for (j in (fi[i]+1):T) {
         if (wnew[i,j] == 0 && j < la[i]) {
-          k = min(which(wnew[i,j:t] > 0))-1
+          k = min(which(wnew[i,j:T] > 0))-1
           m = (k*(wnew[i,j-1] + mu[j-1] + wnew[i,j+k]) - sum(mu[(j):(j+k-1)]))/(k+1) 
           s = sqrt(k*sm^2/(k+1))
           wnew[i,j] = rnorm(1, mean = m, sd = s) 
@@ -294,18 +294,22 @@ sapply(param.mi, quantile, 0.975)
 
 #simulation studies
 #note here we exclude the multiple imputation since the only way to compute the confidence interval is via a nonparametric Bootstrap
-#the computational time is huge and unreasonable
+#the computational time is extremely intensvie
+#here we repeat several scenarios as explained in the draft
+#set p=0.25, 0.5 and 0.75 for model 1 and 2 (covp = FALSE)
+# timep = rep(0,9), because p is constant over time, if p is time-varying, then
+#we set timep=timecov=seq(0,8,1)
 source("sim_open.R")
 nsim = 100
 par_l1 = data.frame(beta0 = rep(0,nsim), beta1=rep(0,nsim), se_b0=rep(0,nsim), se_b1=rep(0,nsim))
 par_l2 = data.frame(beta0 = rep(0,nsim), beta1=rep(0,nsim), se_b0=rep(0,nsim), se_b1=rep(0,nsim))
-set.seed(3456)
-parameters <- list(beta = c(-3, 0.2), mu = rnorm(9), p=0.25, sigma=1.2, gamma=NULL)
+set.seed(33456)
+parameters <- list(beta = c(-3, 0.2), mu = NULL, p=0.25, sigma=1.2, gamma=NULL)
 for (i in 1:100) {
   sim <- sim_open(parameters = parameters, N=500, T=10, initial.cov = list(mu=15, sd=2))
   x <- sim$x 
   w <- sim$w
-  hmm <- CJSc(x, w, method = "HMM", covp=FALSE, timecov = seq(0,8,1), timep = rep(0,9), m=20)
+  hmm <- CJSc(x, w, method = "HMM", covp=FALSE, temporal=FALSE, timep = rep(0,9), m=20)
   par_l1[i,1:2] <- hmm$par[1:2]
   par_l1[i,3:4] <- hmm$se[1:2]
   
@@ -322,10 +326,10 @@ mean((par_l2[,2]-(0.2))/(0.2))
 
 #for example we want to compute the covergae probabilites of the HMM
 cp = 0
-lower = par_l1[,1] - qnorm(0.975)*par_l1[,3]
-upper = par_l1[,3] + qnorm(0.975)*par_l1[,3]
+lower = par_l2[,2] - qnorm(0.975)*par_l2[,4]
+upper = par_l2[,2] + qnorm(0.975)*par_l2[,4]
 for (i in 1:nsim) {
-  if (-3 >= lower[i] && -3 <= upper[i]){
+  if (0.2 >= lower[i] && 0.2 <= upper[i]){
     cp = cp + 1
   } else {
     cp = cp + 0
@@ -334,18 +338,13 @@ for (i in 1:nsim) {
 cp
 mean(upper-lower)
 #computational comparisons
+sim <- sim_open(parameters = parameters, N=500, T=10, initial.cov = list(mu=15, sd=2))
+x <- sim$x 
+w <- sim$w
 microbenchmark('HMM' = {
-  data = list(x=x, y=w, Bj=Bj, Bs=Bs, e=fi, la=l, time_a=time_a, time_mu=time_mu, model=1)
-  parameters = list(beta=c(0,0), alpha=c(0), mu=rep(0,9), log_sigma=0)
-  l1 <- MakeADFun(data, parameters, DLL='CJSc_HMM', silent = TRUE)
-  try(fit_tmb(l1), silent = TRUE)
-  se <- try(sdreport(l1), silent = TRUE)
-},
-'LA2' = {
-  data = list(x=x, y=w, e=fi, l=l, time_a=time_a, time_mu=time_mu, model=1)
-  parameters = list(beta=c(0,0), alpha=c(0), mu=rep(0,9), log_sigma=0, u=rep(0,nk))
-  l2 <- MakeADFun(data, parameters, DLL='CJSc_LA', random='u', silent = TRUE)
-  try(fit_tmb(l2),silent = TRUE)
-  se <- try(sdreport(l2), silent = TRUE)
+    CJSc(x, w, method = "HMM", covp=FALSE, timecov = seq(0,8,1), timep = rep(0,9), m=20)
+  }, 
+  'LA2' = {
+    CJSc(x, w, method = "LA2", covp=FALSE, timecov = seq(0,8,1), timep = rep(0,9))
 }, 
 times = 100)
