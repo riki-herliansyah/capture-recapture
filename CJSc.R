@@ -66,6 +66,7 @@ CJSc <- function(x, y, method = "LA2", covp=TRUE, temporal=TRUE, m=20, timep=NUL
     }
   } else {
     ifelse(temporal == TRUE, model<-1, model<-2)
+    ifelse(temporal == TRUE, timecov<-timecov, timecov<-0)
     parmu <- max(timecov)+1
     parp <- max(timep)+1
     data = list(x=x, y=y, fi=fi, la=la, timep=timep, timecov=timecov, model=model, Bj=Bj, Bs=Bs)
@@ -91,7 +92,7 @@ CJSc <- function(x, y, method = "LA2", covp=TRUE, temporal=TRUE, m=20, timep=NUL
   try(fit_tmb(fittmb), silent = TRUE)
   se <- try(sdreport(fittmb), silent = TRUE)
   param <- se$par.fixed
-  separam <- try(sqrt(diag(se$cov.fixed)), silent = T)
+  separam <- try(sqrt(diag(se$cov.fixed)), silent = TRUE)
   k <- length(param)
   AIC <- 2*k + 2*fittmb$fn(param)
   AICc <- AIC + ((2*k^2+2*k)/(n-k-1))
