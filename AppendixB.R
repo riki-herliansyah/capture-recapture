@@ -3,8 +3,9 @@ require(TMBhelper)
 require(statmod)
 require(boot)
 require(microbenchmark)
-path <- "C:/Users/s1898267/OneDrive - University of Edinburgh/PhD/First Year/Annual Review/Appendix codes"
+path <- "your working directory"
 setwd(path)
+#make sure you put all files including .cpp (C++ files) as well as the dataset within the same folder
 
 #Mh Type models
 compile(paste0('Mh_type', '.cpp'))
