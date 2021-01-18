@@ -3,61 +3,24 @@ require(TMBhelper)
 require(statmod)
 require(boot)
 require(microbenchmark)
-
-setwd(" ")
+path <- "C:/Users/s1898267/OneDrive - University of Edinburgh/PhD/First Year/Annual Review/Appendix codes"
+setwd(path)
 
 #Mh Type models
 compile(paste0('Mh_type', '.cpp'))
 dyn.load(paste0('Mh_type'))
+source("mtbh.R")
 
 #preparing data 
 x <- read.table("golftees.txt", quote="\"", comment.char="")
-x <- as.matrix(x); 
-n <- dim(x)[1]; T <- dim(x)[2]
-
-#this is useful for computing at capture ocassion level
-ys = rowSums(x);  ys = ys[ys!=0]
-nk = rep(0,T)
-for(k in 1:T){
-  nk[k] = length(ys[ys==k])
-}
-y = matrix(0, nrow=n, ncol=T)
-for (i in 1:n) {
-  for (j in 1:(T-1)) {
-    if (x[i,j] == 1){
-      y[i,c((j+1):T)] = c(rep(1,T-j))
-      y[i,j] = 0
-      break
-    } else if(x[i,T] == 1){
-      y[i,T] = 0
-    } else {
-      y[i,j] = 0
-    }
-  }
-}
-w <- gauss.quad(30,"hermite")$weights
-node <- gauss.quad(30,"hermite")$nodes
-
-#fitting Mh model using LA 2nd order
-data <- list(x=x, y=y, nk=nk, T=T, w=w, node=node, method=1, model=3, niter=5, ite=1000)
-parameters <- list(alphat=rep(0,1), log_sigma=0, N=n, b=0)
-la2.tmb <- MakeADFun(data, parameters, DLL='Mh_type', silent = TRUE)
-optim(la2.tmb$par, la2.tmb$fn, la2.tmb$gr, la2.tmb$he, method = 'BFGS', control = list(maxit=1000))
-
-#fitting Mbh model using LA 4th order
-data <- list(x=x, y=y, nk=nk, T=T, w=w, node=node, method=2, model=3, niter=5)
-parameters <- list(alphat=rep(0,1), log_sigma=0, N=n, b=0)
-la2.tmb <- MakeADFun(data, parameters, DLL='Mh_type', silent = TRUE)
-optim(la2.tmb$par, la2.tmb$fn, la2.tmb$gr, la2.tmb$he, method = 'BFGS', control = list(maxit=1000))
-
-#fitting Mbh model using GH quadrature of 50 points
-data <- list(x=x, y=y, nk=nk, T=T, w=w, node=node, method=3, model=3, niter=10)
-parameters <- list(alphat=rep(0,1), log_sigma=0, N=n, b=0)
-la2.tmb <- MakeADFun(data, parameters, DLL='Mh_type', silent = TRUE)
-optim(la2.tmb$par, la2.tmb$fn, la2.tmb$gr, la2.tmb$he, method = 'BFGS', control = list(maxit=1000))
+x <- as.matrix(x) 
+#fitting Mh model using Laplace approximations and GHQ
+#model consists of Mh, Mth, Mbh and Mtbh
+mtbh(x, method = 'LA2', model = 'Mh', niter = 20)
+mtbh(x, method = 'LA4', model = 'Mh', niter = 5)
+mtbh(x, method = 'GHQ', model = 'Mbh', niter = 5)
 
 #cI for golf tees data using non-paramyeric bootstrap
-source("mtbh.R")
 B=1000
 pN1 = data.frame(alpha=rep(0,B), log_sigma=rep(0,B), N=rep(0,B)) 
 pN2 = data.frame(alpha=rep(0,B), log_sigma=rep(0,B), N=rep(0,B)) 
@@ -90,30 +53,10 @@ upper.ghq = data.frame(log_sigma=rep(0,iter), N=rep(0,iter))
 param.ghq = data.frame(log_sigma=rep(0,iter), N=rep(0,iter))
 
 set.seed(2345)
-alpha <- rep(-1.0, 6) 
-sigma = 0.75; N=100; beta = 0.75; t=6
+parameter = list (alpha=rep(-1.0, 8), N=250, sigma=0.75, beta=0.75)
 for (k in 1:iter) {
-  p =  matrix(0, ncol = t, nrow = N)
-  ty = matrix(0, ncol = t+1, nrow = N)
-  z = sigma*rnorm(N)
-  for (i in 1:N){
-    for (j in 1:t) {
-      p[i,j] = inv.logit(alpha[j] + z[i])
-      ty[i,j] = rbinom(1, size=1, prob=p[i,j])
-    }
-    #the following lines are used to include behavioural effects
-    if (sum(ty[i,c(1:5)]) > 0){
-      c = min(which(ty[i,c(1:5)]==1))
-      for (j in (c+1):t) {
-        p[i,j] = inv.logit(alpha[j] + beta + z[i])
-        ty[i,j] = rbinom(1, size=1, prob=p[i,j])
-      }
-    }
-    ty[i, t+1] = sum(ty[i,])
-  }
-  x <- ty[ty[,(t+1)]!=0,-(t+1)]
-  n <- dim(ys)[1]
-  
+  x <- sim_closed(parameter = parameter, T=8, behaviour=TRUE)
+  n <- dim(x)[1]
   B=1000
   pN1 = data.frame(log_sigma=rep(0,B), N=rep(0,B)) 
   pN2 = data.frame(log_sigma=rep(0,B), N=rep(0,B)) 
@@ -121,7 +64,7 @@ for (k in 1:iter) {
   for (p in 1:B) {
     sampel = sample(1:n, replace=TRUE)
     xb = x[sampel, ]
-    pN1[p,] =  mtbh(xb, method = 'LA2', model = 'Mbh', niter = 30)$par[2:3]
+    pN1[p,] =  mtbh(xb, method = 'LA2', model = 'Mbh', niter = 5)$par[2:3]
     pN2[p,] =  mtbh(xb, method = 'LA4', model = 'Mbh', niter = 5)$par[2:3]
     pN3[p,] =  mtbh(xb, method = 'GHQ', model = 'Mbh', npoints = 50)$par[2:3]
   }
@@ -131,9 +74,9 @@ for (k in 1:iter) {
   upper.la4[k,] = sapply(pN2, quantile, 0.975)
   lower.ghq[k,] = sapply(pN3, quantile, 0.025)
   upper.ghq[k,] = sapply(pN3, quantile, 0.975)
-  param.la2[k,] = mtbh(ys, method = 'LA2', model = 'Mh', niter = 5)$par[2:3]
-  param.la4[k,] = mtbh(ys, method = 'LA4', model = 'Mh', niter = 5)$par[2:3]
-  param.ghq[k,] = mtbh(ys, method = 'GHQ', model = 'Mh', npoints = 50)$par[2:3]
+  param.la2[k,] = mtbh(x, method = 'LA2', model = 'Mh', niter = 5)$par[2:3]
+  param.la4[k,] = mtbh(x, method = 'LA4', model = 'Mh', niter = 5)$par[2:3]
+  param.ghq[k,] = mtbh(x, method = 'GHQ', model = 'Mh', npoints = 50)$par[2:3]
 }
 
 mean((param.la2[,2]- N)/N)
@@ -163,30 +106,18 @@ cp
 
 #the second simulation study in Section 4.1 
 #we use a nonparametric Bootstrap to compute the confidence interval
+#we set heterogeneity variability as sigma=1, 1.5 and 2.0
 set.seed(2345)
-#sigma = 1, 1.5 and 2.0
-alpha <- -1.5
-sigma = 1; N=250; t=8
+parameter = list (alpha=rep(-1.5, 8), N=250, sigma=1.0, beta=NULL)
 for (k in 1:iter) {
-  p =  matrix(0, ncol = t, nrow = N)
-  ty = matrix(0, ncol = t+1, nrow = N)
-  z = sigma*rnorm(N)
-  for (i in 1:N){
-    for (j in 1:t) {
-      p[i,j] = inv.logit(alpha + z[i])
-      ty[i,j] = rbinom(1, size=1, prob=p[i,j])
-    }
-    ty[i, t+1] = sum(ty[i,])
-  }
-  x <- ty[ty[,(t+1)]!=0,-(t+1)]
-  n <- dim(ys)[1]
-  
+  x <- sim_closed(parameter = parameter, T=8, behaviour=FALSE)
+  n <- dim(x)[1]
   B=1000
   pN1 = data.frame(log_sigma=rep(0,B), N=rep(0,B)) 
   pN2 = data.frame(log_sigma=rep(0,B), N=rep(0,B)) 
   pN3 = data.frame(log_sigma=rep(0,B), N=rep(0,B)) 
   for (p in 1:B) {
-    sampel = sample(1:n,replace=TRUE)
+    sampel = sample(1:n, replace=TRUE)
     xb = x[sampel, ]
     pN1[p,] =  mtbh(xb, method = 'LA2', model = 'Mh', niter = 5)$par[2:3]
     pN2[p,] =  mtbh(xb, method = 'LA4', model = 'Mh', niter = 5)$par[2:3]
@@ -198,9 +129,9 @@ for (k in 1:iter) {
   upper.la4[k,] = sapply(pN2, quantile, 0.975)
   lower.ghq[k,] = sapply(pN3, quantile, 0.025)
   upper.ghq[k,] = sapply(pN3, quantile, 0.975)
-  param.la2[k,] = mtbh(ys, method = 'LA2', model = 'Mh', niter = 5)$par[2:3]
-  param.la4[k,] = mtbh(ys, method = 'LA4', model = 'Mh', niter = 5)$par[2:3]
-  param.ghq[k,] = mtbh(ys, method = 'GHQ', model = 'Mh', npoints = 50)$par[2:3]
+  param.la2[k,] = mtbh(x, method = 'LA2', model = 'Mh', niter = 5)$par[2:3]
+  param.la4[k,] = mtbh(x, method = 'LA4', model = 'Mh', niter = 5)$par[2:3]
+  param.ghq[k,] = mtbh(x, method = 'GHQ', model = 'Mh', npoints = 50)$par[2:3]
 }
 
 mean((param.la2[,2]- N)/N)
@@ -233,43 +164,12 @@ for (i in 1:iter) {
 cp
 
 #computational comparisons to execute the likelihood of Mh model from the last simulation
-nk = rep(0,t)
-for(k in 1:t){
-  nk[k] = length(x[x==k])
-}
-y = matrix(0, nrow=n, ncol=t)
-for (i in 1:n) {
-  for (j in 1:(t-1)) {
-    if (x[i,j] == 1){
-      y[i,c((j+1):t)] = c(rep(1,t-j))
-      y[i,j] = 0
-      break
-    } else if(x[i,t] == 1){
-      y[i,t] = 0
-    } else {
-      y[i,j] = 0
-    }
-  }
-}
-w <- gauss.quad(50,"hermite")$weights
-node <- gauss.quad(50,"hermite")$nodes
 microbenchmark('LA2' = {
-  data <- list(x=x, y=y, nk=nk, T=t, w=w, node=node, method=1, model=1, niter=5)
-  parameters <- list(alphat=rep(0,1), log_sigma=0, N=n)
-  la2.tmb <- MakeADFun(data, parameters, DLL='Mh_type', silent = TRUE)
-  optim(la2.tmb$par, la2.tmb$fn, la2.tmb$gr, la2.tmb$he, method = 'BFGS', control = list(maxit=1000))
-},
-'LA4' = {
-  data <- list(x=x, y=y, nk=nk, T=t, w=w, node=node, method=2, model=1, niter=5)
-  parameters <- list(alphat=rep(0,1), log_sigma=0, N=n)
-  la4.tmb <- MakeADFun(data, parameters, DLL='Mh_type', silent = TRUE)
-  optim(la4.tmb$par, la4.tmb$fn, la4.tmb$gr, la4.tmb$he, method = 'BFGS', control = list(maxit=1000))
-},
-'GHQ' = {
-  data <- list(x=x, y=y, nk=nk, T=t, w=w, node=node, method=3, model=1, niter=5)
-  parameters <- list(alphat=rep(0,1), log_sigma=0, N=n)
-  ghq.tmb <- MakeADFun(data, parameters, DLL='Mh_type', silent = TRUE)
-  optim(ghq.tmb$par, ghq.tmb$fn, ghq.tmb$gr, ghq.tmb$he, method = 'BFGS', control = list(maxit=1000))
+  mtbh(x, method = 'LA2', model = 'Mh', niter = 5)
+},'LA4' = {
+  mtbh(x, method = 'LA4', model = 'Mh', niter = 5)
+},'GHQ' = {
+  mtbh(x, method = 'LA2', model = 'Mh', npoints = 50)
 }, times = 100)
 
 #CJS with continuous covariates
@@ -279,6 +179,7 @@ compile(paste0('CJSc_LA', '.cpp'))
 dyn.load(paste0('CJSc_LA'))
 compile(paste0('CJSc_MI', '.cpp'))
 dyn.load(paste0('CJSc_MI'))
+source("CJSc.R")
 
 xvole <- read.table("volecap.dat", quote="\"", comment.char="")
 yvole <- read.table("voleweight.dat", quote="\"", comment.char="")
@@ -333,7 +234,7 @@ for (i in 1:n) {
 mx = max(c(yv)[c(yv)>0])
 mn = min(c(yv)[c(yv)>0])
 #for this dataset, m=20 is adequate
-m=420
+m=20
 max.w  <-  round(12/10*mx) # essential range upper limit
 min.w  <-  round(8/10*mn)  # essential range lower limit
 K      <-m+1
@@ -346,12 +247,12 @@ Bs  <-(Bj[-1]+Bj[-K])*0.5
 #time_mu indicates the number of parameters assigned to covariate means, e.g. 0 indicating mu_1
 #C++ starts indexing from 0
 
-data = list(x=xv, y=yv, Bj=Bj, Bs=Bs, e=fi, la=l,time_a=c(0,1,2), time_mu=c(0,1,2), model=3)
+data = list(x=xv, y=yv, Bj=Bj, Bs=Bs, fi=fi, la=l,timep=c(0,1,2), timecov=c(0,1,2), model=3)
 parameters = list(beta=c(0,0), gamma=c(0,0), mu= c(0,0,0), log_sigma=0)
 hm <- MakeADFun(data, parameters, DLL='CJSc_HMM', silent = TRUE)
 #we consider to use the fit_tmb for optimization from TMBhelper
 fit_tmb(hm)
-sdreport(hm)
+se<-sdreport(hm)
 
 #fitting the dataset via the Laplace's method
 data = list(x=xv, y=yv, e=fi, l=l, time_a=c(0,1,2), time_mu=c(0,1,2), model=3)
@@ -397,7 +298,7 @@ for (j in 1:t-1) {
 for (q in 1:m) {
     wnew = yv
     for (i in 1:n) {
-      for (j in (e[i]+1):t) {
+      for (j in (fi[i]+1):t) {
         if (wnew[i,j] == 0 && j < l[i]) {
           k = min(which(wnew[i,j:t] > 0))-1
           m = (k*(wnew[i,j-1] + mu[j-1] + wnew[i,j+k]) - sum(mu[(j):(j+k-1)]))/(k+1) 
@@ -470,7 +371,11 @@ nsim = 100
 par_l1 = data.frame(beta0 = rep(0,nsim), beta1=rep(0,nsim), se_b0=rep(0,nsim), se_b1=rep(0,nsim))
 par_l2 = data.frame(beta0 = rep(0,nsim), beta1=rep(0,nsim), se_b0=rep(0,nsim), se_b1=rep(0,nsim))
 
-set.seed(1234)
+set.seed(2345)
+source("sim_open.R")
+parameters <- list(beta = c(-3, 0.2), mu = rnorm(9), p=0.25, sigma=1.2, gamma=NULL)
+sim <- sim_open(parameters = parameters, 500, 10, initial.cov = list(mu=15,sd=2))
+CJSc(sim$x, sim$w, covp=FALSE, timecov = seq(0,8,1), timep = rep(0,9))
 for (r in 1:nsim) {
   N=500
   T=10
@@ -504,15 +409,7 @@ for (r in 1:nsim) {
   
   t = dim(w)[2]; n = dim(w)[1]
   fi = rep(0,n); l = rep(0,n)
-  for (i in 1:n) {
-    for (j in 1:t) {
-      if(is.na(x[i,j]) == TRUE){
-        x[i,j] = 0.0
-      } else {
-        x[i,j] = x[i,j]
-      }
-    }
-  }
+  
   for (i in 1:n) {
     for (j in 1:t) {
       fi[i] = min(which(x[i,]==1))
@@ -555,7 +452,7 @@ for (r in 1:nsim) {
   K      <-L+1
   Bj     <- seq(min.w, max.w,length=K)
   Bs  <-(Bj[-1]+Bj[-K])*0.5
-  data = list(x=x, y=w, Bj=Bj, Bs=Bs, e=fi, la=l, time_a=time_a, time_mu=time_mu, model=1)
+  data = list(x=x, y=w, Bj=Bj, Bs=Bs, fi=fi, la=l, timep=time_a, timecov=time_mu, model=1)
   parameters = list(beta=c(0,0), alpha=c(0), mu=rep(0,9), log_sigma=0)
   l1 <- MakeADFun(data, parameters, DLL='CJSc_HMM', silent = TRUE)
   try(fit_tmb(l1), silent = TRUE)
@@ -564,7 +461,7 @@ for (r in 1:nsim) {
   par_l1[r,3:4] <- try(sqrt(diag(se$cov.fixed)), silent = T)[1:2]
   
   #Laplace
-  data = list(x=x, y=w, e=fi, l=l, time_a=time_a, time_mu=time_mu, model=1)
+  data = list(x=x, y=w, fi=fi, la=l, timep=time_a, timecov=time_mu, model=1)
   parameters = list(beta=c(0,0), alpha=c(0), mu=rep(0,9), log_sigma=0, u=rep(0,nk))
   l2 <- MakeADFun(data, parameters, DLL='CJSc_LA', random='u', silent = TRUE)
   try(fit_tmb(l2),silent = TRUE)
@@ -574,8 +471,8 @@ for (r in 1:nsim) {
   
 }
 
-mean((par_l1[,1]-(-3))/(-3))
-mean((par_l2[,1]-(-3))/(-3))
+mean((par_l1[,1]-(-3.0))/(-3.0))
+mean((par_l2[,1]-(-3.0))/(-3.0))
 
 mean((par_l1[,2]-(0.2))/(0.2))
 mean((par_l2[,2]-(0.2))/(0.2))
