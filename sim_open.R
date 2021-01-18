@@ -17,7 +17,7 @@ sim_open <- function(parameters, N, T, initial.cov=list(mu=15, sd=2)){
     x[k,fi]<-1
     w[k,fi]<-rnorm(1, mu.in, sd.in) # initial body mass distribution
     for (i in (fi+1):T){
-      w[k,i]<- w[k,i-1]+mu[i-1]+sigma*rnorm(1) 
+      ifelse(is.null(mu)==TRUE, w[k,i]<- w[k,i-1]+sigma*rnorm(1), w[k,i]<- w[k,i-1]+mu[i-1]+sigma*rnorm(1))
       ifelse(alive[k,i-1]==1,alive[k,i]<-rbinom(1,size=1,prob=inv.logit(beta[1]+beta[2]*w[k,i-1])),alive[k,i]<-0)
       if (alive[k,i]==1) {
         ifelse(is.null(gam)==TRUE, x[k,i]<-rbinom(1,size=1,prob=p[i]), 
