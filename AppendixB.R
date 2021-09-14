@@ -19,10 +19,10 @@ x <- as.matrix(x)
 #model consists of Mh, Mth, Mbh and Mtbh
 mtbh(x, method = 'LA2', model = 'Mh', niter = 5)
 mtbh(x, method = 'LA4', model = 'Mh', niter = 5)
-mtbh(x, method = 'GHQ', model = 'Mh', niter = 5)
+mtbh(x, method = 'GHQ', model = 'Mh', npoints = 30)
 
 #cI for golf tees data using non-paramyeric bootstrap
-B=1000
+B=1000; n <- dim(x)[1]
 pN1 = data.frame(alpha=rep(0,B), log_sigma=rep(0,B), N=rep(0,B)) 
 pN2 = data.frame(alpha=rep(0,B), log_sigma=rep(0,B), N=rep(0,B)) 
 pN3 = data.frame(alpha=rep(0,B), log_sigma=rep(0,B), N=rep(0,B)) 
@@ -68,7 +68,7 @@ for (k in 1:nsim) {
     xb = x[sampel, ]
     pN1[p,] =  mtbh(xb, method = 'LA2', model = 'Mh', niter = 5)$par[2:3]
     pN2[p,] =  mtbh(xb, method = 'LA4', model = 'Mh', niter = 5)$par[2:3]
-    pN3[p,] =  mtbh(xb, method = 'GHQ', model = 'Mh', npoints = 50)$par[2:3]
+    pN3[p,] =  mtbh(xb, method = 'GHQ', model = 'Mh', npoints = 20)$par[2:3]
   }
   lower.la2[k,] = sapply(pN1, quantile, 0.025)
   upper.la2[k,] = sapply(pN1, quantile, 0.975)
@@ -78,7 +78,7 @@ for (k in 1:nsim) {
   upper.ghq[k,] = sapply(pN3, quantile, 0.975)
   param.la2[k,] = mtbh(x, method = 'LA2', model = 'Mh', niter = 5)$par[2:3]
   param.la4[k,] = mtbh(x, method = 'LA4', model = 'Mh', niter = 5)$par[2:3]
-  param.ghq[k,] = mtbh(x, method = 'GHQ', model = 'Mh', npoints = 50)$par[2:3]
+  param.ghq[k,] = mtbh(x, method = 'GHQ', model = 'Mh', npoints = 20)$par[2:3]
 }
 
 mean((param.la2[,2]- N)/N)
@@ -123,7 +123,7 @@ for (k in 1:nsim) {
     xb = x[sampel, ]
     pN1[p,] =  mtbh(xb, method = 'LA2', model = 'Mh', niter = 5)$par[2:3]
     pN2[p,] =  mtbh(xb, method = 'LA4', model = 'Mh', niter = 5)$par[2:3]
-    pN3[p,] =  mtbh(xb, method = 'GHQ', model = 'Mh', npoints = 50)$par[2:3]
+    pN3[p,] =  mtbh(xb, method = 'GHQ', model = 'Mh', npoints = 20)$par[2:3]
   }
   lower.la2[k,] = sapply(pN1, quantile, 0.025)
   upper.la2[k,] = sapply(pN1, quantile, 0.975)
@@ -133,7 +133,7 @@ for (k in 1:nsim) {
   upper.ghq[k,] = sapply(pN3, quantile, 0.975)
   param.la2[k,] = mtbh(x, method = 'LA2', model = 'Mh', niter = 5)$par[2:3]
   param.la4[k,] = mtbh(x, method = 'LA4', model = 'Mh', niter = 5)$par[2:3]
-  param.ghq[k,] = mtbh(x, method = 'GHQ', model = 'Mh', npoints = 50)$par[2:3]
+  param.ghq[k,] = mtbh(x, method = 'GHQ', model = 'Mh', npoints = 20)$par[2:3]
 }
 
 mean((param.la2[,2]- N)/N)
@@ -171,7 +171,7 @@ microbenchmark('LA2' = {
 },'LA4' = {
   mtbh(x, method = 'LA4', model = 'Mh', niter = 5)
 },'GHQ' = {
-  mtbh(x, method = 'GHQ', model = 'Mh', npoints = 50)
+  mtbh(x, method = 'GHQ', model = 'Mh', npoints = 20)
 }, times = 100)
 
 #CJS with continuous covariates
@@ -235,7 +235,7 @@ for (i in 1:n) {
 #find the estimates of imputation model parameters
 par = optim(param, ll, y=yvole, fi=fi, timecov=timecov)$par
 mu = par[-4]; sm = exp(par[4])
-#imputing covariates using the estmated parameters obtained above
+#imputing covariates using the estimated parameters obtained above
 for (q in 1:20) {
   wnew = as.matrix(yvole)
   for (i in 1:n) {
@@ -301,20 +301,21 @@ sapply(param.mi, quantile, 0.975)
 # timep = rep(0,9), because p is constant over time, if p is time-varying, then
 #we set timep=timecov=seq(0,8,1)
 source("sim_open.R")
-nsim = 100
+nsim = 1000
 par_l1 = data.frame(beta0 = rep(0,nsim), beta1=rep(0,nsim), se_b0=rep(0,nsim), se_b1=rep(0,nsim))
 par_l2 = data.frame(beta0 = rep(0,nsim), beta1=rep(0,nsim), se_b0=rep(0,nsim), se_b1=rep(0,nsim))
 set.seed(3456)
 parameters <- list(beta = c(-3, 0.2), mu = NULL, p=0.25, sigma=1.2, gamma=NULL)
-for (i in 1:100) {
-  sim <- sim_open(parameters = parameters, N=500, T=10, initial.cov = list(mu=15, sd=2))
+K <- 4
+for (i in 1:nsim) {
+  sim <- sim_open(parameters = parameters, N=200, T=K, initial.cov = list(mu=15, sd=2))
   x <- sim$x 
   w <- sim$w
-  hmm <- CJSc(x, w, method = "HMM", covp=FALSE, temporal=FALSE, timep = rep(0,9), m=20)
+  hmm <- CJSc(x, w, method = "HMM", covp=FALSE, temporal=FALSE, timep = rep(0,K-1), m=20)
   par_l1[i,1:2] <- hmm$par[1:2]
   par_l1[i,3:4] <- hmm$se[1:2]
   
-  la2 <- CJSc(x, w, method = "LA2", covp=FALSE, timecov = seq(0,8,1), timep = rep(0,9))
+  la2 <- CJSc(x, w, method = "LA2", covp=FALSE, timecov = seq(0,K-2,1), timep = rep(0,K-1))
   par_l2[i,1:2] <- la2$par[1:2]
   par_l2[i,3:4] <- la2$se[1:2]
 }
@@ -339,13 +340,13 @@ for (i in 1:nsim) {
 cp
 mean(upper-lower)
 #computational comparisons
-sim <- sim_open(parameters = parameters, N=500, T=10, initial.cov = list(mu=15, sd=2))
+sim <- sim_open(parameters = parameters, N=200, T=4, initial.cov = list(mu=15, sd=2))
 x <- sim$x 
 w <- sim$w
 microbenchmark('HMM' = {
-    CJSc(x, w, method = "HMM", covp=FALSE, timecov = seq(0,8,1), timep = rep(0,9), m=20)
+    CJSc(x, w, method = "HMM", covp=FALSE, timecov = seq(0,K-2,1), timep = rep(0,K-1), m=20)
   }, 
   'LA2' = {
-    CJSc(x, w, method = "LA2", covp=FALSE, timecov = seq(0,8,1), timep = rep(0,9))
+    CJSc(x, w, method = "LA2", covp=FALSE, timecov = seq(0,K-2,1), timep = rep(0,K-1))
 }, 
 times = 100)
