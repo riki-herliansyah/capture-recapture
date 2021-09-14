@@ -94,84 +94,16 @@ for (i in 1:100) {
   } else {
     cp = cp + 0
   }
-} 
-cp
-cp = 0
-for (i in 1:100) {
-  if (sigma >= exp(lower.la4[i,1]) && sigma <= exp(upper.la4[i,1])){
-    cp = cp + 1
-  } else {
-    cp = cp + 0
-  }
-} 
-cp
-
-#the second simulation study in Section 4.1 
-#we use a nonparametric Bootstrap to compute the confidence interval
-#we set heterogeneity variability as sigma=1, 1.5 and 2.0
-set.seed(2345)
-parameter = list (alpha=rep(-1.5, 8), N=250, sigma=1.0, beta=NULL)
-for (k in 1:nsim) {
-  x <- sim_closed(parameter = parameter, T=8, behaviour=FALSE)
-  n <- dim(x)[1]
-  B=1000
-  pN1 = data.frame(log_sigma=rep(0,B), N=rep(0,B)) 
-  pN2 = data.frame(log_sigma=rep(0,B), N=rep(0,B)) 
-  pN3 = data.frame(log_sigma=rep(0,B), N=rep(0,B)) 
-  for (p in 1:B) {
-    sampel = sample(1:n, replace=TRUE)
-    xb = x[sampel, ]
-    pN1[p,] =  mtbh(xb, method = 'LA2', model = 'Mh', niter = 5)$par[2:3]
-    pN2[p,] =  mtbh(xb, method = 'LA4', model = 'Mh', niter = 5)$par[2:3]
-    pN3[p,] =  mtbh(xb, method = 'GHQ', model = 'Mh', npoints = 20)$par[2:3]
-  }
-  lower.la2[k,] = sapply(pN1, quantile, 0.025)
-  upper.la2[k,] = sapply(pN1, quantile, 0.975)
-  lower.la4[k,] = sapply(pN2, quantile, 0.025)
-  upper.la4[k,] = sapply(pN2, quantile, 0.975)
-  lower.ghq[k,] = sapply(pN3, quantile, 0.025)
-  upper.ghq[k,] = sapply(pN3, quantile, 0.975)
-  param.la2[k,] = mtbh(x, method = 'LA2', model = 'Mh', niter = 5)$par[2:3]
-  param.la4[k,] = mtbh(x, method = 'LA4', model = 'Mh', niter = 5)$par[2:3]
-  param.ghq[k,] = mtbh(x, method = 'GHQ', model = 'Mh', npoints = 20)$par[2:3]
-}
-
-mean((param.la2[,2]- N)/N)
-mean((param.la4[,2]- N)/N)
-mean((param.ghq[,2]- N)/N)
-mean((exp(param.la2[,1])- sigma)/sigma)
-mean((exp(param.la4[,1])- sigma)/sigma)
-mean((exp(param.ghq[,1])- sigma)/sigma)
-sapply(upper.la2-lower.la2, mean)
-sapply(upper.la4-lower.la4, mean)
-sapply(upper.ghq-lower.ghq, mean)
-
-cp = 0
-for (i in 1:iter) {
-  if (N >= lower.la4[i,2] && N <= upper.la4[i,2]){
-    cp = cp + 1
-  } else {
-    cp = cp + 0
-  }
-} 
-cp
-cp = 0
-for (i in 1:iter) {
-  if (sigma >= exp(lower.la4[i,1]) && sigma <= exp(upper.la4[i,1])){
-    cp = cp + 1
-  } else {
-    cp = cp + 0
-  }
-} 
-cp
+}  
 
 #computational comparisons to execute the likelihood of Mh model from the last simulation
+x <- sim_closed(parameter = parameter, T=6, behaviour=FALSE)
 microbenchmark('LA2' = {
   mtbh(x, method = 'LA2', model = 'Mh', niter = 5)
 },'LA4' = {
   mtbh(x, method = 'LA4', model = 'Mh', niter = 5)
 },'GHQ' = {
-  mtbh(x, method = 'GHQ', model = 'Mh', npoints = 20)
+  mtbh(x, method = 'GHQ', model = 'Mh', npoints = 50)
 }, times = 100)
 
 #CJS with continuous covariates
@@ -305,7 +237,7 @@ nsim = 1000
 par_l1 = data.frame(beta0 = rep(0,nsim), beta1=rep(0,nsim), se_b0=rep(0,nsim), se_b1=rep(0,nsim))
 par_l2 = data.frame(beta0 = rep(0,nsim), beta1=rep(0,nsim), se_b0=rep(0,nsim), se_b1=rep(0,nsim))
 set.seed(3456)
-parameters <- list(beta = c(-3, 0.2), mu = NULL, p=0.25, sigma=1.2, gamma=NULL)
+parameters <- list(beta = c(-3, 0.2), mu = NULL, p=0.75, sigma=1.2, gamma=NULL)
 K <- 4
 for (i in 1:nsim) {
   sim <- sim_open(parameters = parameters, N=200, T=K, initial.cov = list(mu=15, sd=2))
@@ -340,7 +272,7 @@ for (i in 1:nsim) {
 cp
 mean(upper-lower)
 #computational comparisons
-sim <- sim_open(parameters = parameters, N=200, T=4, initial.cov = list(mu=15, sd=2))
+sim <- sim_open(parameters = parameters, N=400, T=6, initial.cov = list(mu=15, sd=2))
 x <- sim$x 
 w <- sim$w
 microbenchmark('HMM' = {
