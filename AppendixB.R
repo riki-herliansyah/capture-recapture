@@ -114,16 +114,21 @@ dyn.load(paste0('CJSc_LA'))
 compile(paste0('CJSc_MI', '.cpp'))
 dyn.load(paste0('CJSc_MI'))
 
+#we will generate some data to demonstrate the second example in the paper, time-varying continuous CJS model
 source("CJSc.R")
-xvole <- read.table("volecap.dat", quote="\"", comment.char="")
-yvole <- read.table("voleweight.dat", quote="\"", comment.char="")
+source("sim_open.R")
+set.seed(3456)
+parameters <- list(beta = c(-3, 0.2), mu = NULL, p=0.75, sigma=1.2, gamma=c(-1.0, 0.2))
+sim <- sim_open(parameters = parameters, N=199, T=4, initial.cov = list(mu=15, sd=2))
+xvole <- sim$x 
+yvole <- sim$w
 
 
-#since we model the capture probability as a function of covariates (covp=TRUE), 
+#since we model the capture probability as a function of covariates (covp=TRUE; gamma != NULL)
 #we can ignore timep
 #timecov indicates the number of parameters assigned to covariate means, 
 #e.g. 0 indicating mu_1 since C++ starts indexing from 0
-#number of mus is T-1 which 3
+#number of mus is T-1 which 3 (T=4)
 #fitting the dataset via 20-HMM
 CJSc(xvole, yvole, method = "HMM", covp=TRUE, timecov = seq(0,2,1), m=20) 
 
@@ -225,60 +230,15 @@ for (r in 1:B) {
 sapply(param.mi, quantile, 0.025)
 sapply(param.mi, quantile, 0.975)
 
-#simulation studies
-#note here we exclude the multiple imputation since the only way to compute the confidence interval is via a nonparametric Bootstrap
-#the computational time is extremely intensvie
-#here we repeat several scenarios as explained in the draft
-#set p=0.25, 0.5 and 0.75 for model 1 and 2 (covp = FALSE)
-# timep = rep(0,9), because p is constant over time, if p is time-varying, then
-#we set timep=timecov=seq(0,8,1)
-source("sim_open.R")
-nsim = 1000
-par_l1 = data.frame(beta0 = rep(0,nsim), beta1=rep(0,nsim), se_b0=rep(0,nsim), se_b1=rep(0,nsim))
-par_l2 = data.frame(beta0 = rep(0,nsim), beta1=rep(0,nsim), se_b0=rep(0,nsim), se_b1=rep(0,nsim))
-set.seed(3456)
-parameters <- list(beta = c(-3, 0.2), mu = NULL, p=0.75, sigma=1.2, gamma=NULL)
-K <- 4
-for (i in 1:nsim) {
-  sim <- sim_open(parameters = parameters, N=200, T=K, initial.cov = list(mu=15, sd=2))
-  x <- sim$x 
-  w <- sim$w
-  hmm <- CJSc(x, w, method = "HMM", covp=FALSE, temporal=FALSE, timep = rep(0,K-1), m=20)
-  par_l1[i,1:2] <- hmm$par[1:2]
-  par_l1[i,3:4] <- hmm$se[1:2]
-  
-  la2 <- CJSc(x, w, method = "LA2", covp=FALSE, timecov = seq(0,K-2,1), timep = rep(0,K-1))
-  par_l2[i,1:2] <- la2$par[1:2]
-  par_l2[i,3:4] <- la2$se[1:2]
-}
 
-mean((par_l1[,1]-(-3.0))/(-3.0))
-mean((par_l2[,1]-(-3.0))/(-3.0))
-
-mean((par_l1[,2]-(0.2))/(0.2))
-mean((par_l2[,2]-(0.2))/(0.2))
-
-#for example we want to compute the covergae probabilites of the HMM
-cp = 0
-lower = par_l2[,2] - qnorm(0.975)*par_l2[,4]
-upper = par_l2[,2] + qnorm(0.975)*par_l2[,4]
-for (i in 1:nsim) {
-  if (0.2 >= lower[i] && 0.2 <= upper[i]){
-    cp = cp + 1
-  } else {
-    cp = cp + 0
-  }
-} 
-cp
-mean(upper-lower)
 #computational comparisons
 sim <- sim_open(parameters = parameters, N=400, T=6, initial.cov = list(mu=15, sd=2))
 x <- sim$x 
 w <- sim$w
 microbenchmark('HMM' = {
-    CJSc(x, w, method = "HMM", covp=FALSE, timecov = seq(0,K-2,1), timep = rep(0,K-1), m=20)
+    CJSc(x, w, method = "HMM", covp=TRUE, timecov = seq(0,K-2,1), m=20)
   }, 
   'LA2' = {
-    CJSc(x, w, method = "LA2", covp=FALSE, timecov = seq(0,K-2,1), timep = rep(0,K-1))
+    CJSc(x, w, method = "LA2", covp=TRUE, timecov = seq(0,K-2,1))
 }, 
 times = 100)
