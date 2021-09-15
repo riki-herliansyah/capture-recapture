@@ -237,9 +237,9 @@ sim <- sim_open(parameters = parameters, N=512, T=4, initial.cov = list(mu=15, s
 x <- sim$x 
 w <- sim$w
 microbenchmark('HMM' = {
-    CJSc(x, w, method = "HMM", covp=TRUE, timecov = seq(0,K-2,1), m=20)
+    CJSc(x, w, method = "HMM", covp=TRUE, timecov = seq(0,2,1), m=20)
   }, 
   'LA2' = {
-    CJSc(x, w, method = "LA2", covp=TRUE, timecov = seq(0,K-2,1))
+    CJSc(x, w, method = "LA2", covp=TRUE, timecov = seq(0,2,1))
 }, 
 times = 100)
