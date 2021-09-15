@@ -1,5 +1,5 @@
-Appendix Codes (Herliansyah et al., 2021)
-=========================================
+Appendix Codes (Herliansyah, R., King, R., and King, S., 2021)
+==============================================================
 
 
 The following codes are appendix codes used for model fitting on closed and open population models from the paper:
