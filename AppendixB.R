@@ -9,7 +9,7 @@ setwd(path)
 
 #Mh Type models
 compile(paste0('Mh_type', '.cpp'))
-dyn.load(paste0('Mh_type'))
+dyn.load(dynlib('Mh_type'))
 source("mtbh.R")
 
 #preparing data 
@@ -17,9 +17,9 @@ x <- read.table("golftees.txt", quote="\"", comment.char="")
 x <- as.matrix(x) 
 #fitting Mh model using Laplace approximations and GHQ
 #model consists of Mh, Mth, Mbh and Mtbh
-mtbh(x, method = 'LA2', model = 'Mh', niter = 5)
-mtbh(x, method = 'LA4', model = 'Mh', niter = 5)
-mtbh(x, method = 'GHQ', model = 'Mh', npoints = 30)
+mtbh(x, method = 'LA2', model = 'Mbh', niter = 5)
+mtbh(x, method = 'LA4', model = 'Mbh', niter = 5)
+mtbh(x, method = 'GHQ', model = 'Mbh', npoints = 30)
 
 #cI for golf tees data using non-paramyeric bootstrap
 B=1000; n <- dim(x)[1]
@@ -108,18 +108,19 @@ microbenchmark('LA2' = {
 
 #CJS with continuous covariates
 compile(paste0('CJSc_HMM', '.cpp'))
-dyn.load(paste0('CJSc_HMM'))
+dyn.load(dynlib('CJSc_HMM'))
 compile(paste0('CJSc_LA', '.cpp'))
-dyn.load(paste0('CJSc_LA'))
+dyn.load(dynlib('CJSc_LA'))
 compile(paste0('CJSc_MI', '.cpp'))
-dyn.load(paste0('CJSc_MI'))
+dyn.load(dynlib('CJSc_MI'))
+
 
 #we will generate some data to demonstrate the second example in the paper, time-varying continuous CJS model
 source("CJSc.R")
 source("sim_open.R")
 set.seed(3456)
-parameters <- list(beta = c(-3, 0.2), mu = NULL, p=0.75, sigma=1.2, gamma=c(-1.0, 0.2))
-sim <- sim_open(parameters = parameters, N=199, T=4, initial.cov = list(mu=15, sd=2))
+parameters <- list(beta = c(-3, 0.2), mu = rnorm(3), p=0.75, sigma=1.5, gamma=c(-2.0, 0.2))
+sim <- sim_open(parameters = parameters, N=512, T=4, initial.cov = list(mu=15, sd=2))
 xvole <- sim$x 
 yvole <- sim$w
 
@@ -148,7 +149,7 @@ ll <- function(param, y, fi, timecov){
   nll = 0.0
   for (i in 1:n) {
     for (j in (fi[i]+1):t) {
-      if (y[i,j] > 0 && y[i,j-1] > 0){
+      if (is.na(y[i,j])==FALSE && is.na(y[i,j-1])==FALSE){
         nll = nll - dnorm(y[i,j], y[i,j-1] + mu[j-1], sigma, TRUE)
       } else {
         nll = nll - 0
@@ -164,7 +165,7 @@ timecov <- c(1,2,3) #since R starts from 1 for indexing
 param <- rep(0, max(timecov)+1)
 fi = rep(0,n); la = rep(0,n)
 for (i in 1:n) {
-  for (j in 1:t) {
+  for (j in 1:T) {
     fi[i] = min(which(xvole[i,]==1))
     la[i] = max(which(xvole[i,]==1))
   }
@@ -177,12 +178,12 @@ for (q in 1:20) {
   wnew = as.matrix(yvole)
   for (i in 1:n) {
     for (j in (fi[i]+1):T) {
-      if (wnew[i,j] == 0 && j < la[i]) {
+      if (is.na(wnew[i,j]) == TRUE && j < la[i]) {
         k = min(which(wnew[i,j:T] > 0))-1
         m = (k*(wnew[i,j-1] + mu[j-1] + wnew[i,j+k]) - sum(mu[(j):(j+k-1)]))/(k+1) 
         s = sqrt(k*sm^2/(k+1))
         wnew[i,j] = rnorm(1, mean = m, sd = s) 
-      } else if (wnew[i,j] == 0 && j > la[i]) {
+      } else if (is.na(wnew[i,j]) == TRUE && j > la[i]) {
         wnew[i,j] = wnew[i,j-1] + mu[j-1] + sm*rnorm(1)
       } else {
         wnew[i,j] = wnew[i,j]
@@ -200,7 +201,7 @@ for (r in 1:B) {
   sampel = sample(1:n,replace=TRUE)
   xb = xvole[sampel, ]; yb = yvole[sampel, ]
   for (i in 1:n) {
-    for (j in 1:t) {
+    for (j in 1:T) {
       fi[i] = min(which(xb[i,]==1))
       la[i] = max(which(xb[i,]==1))
     }
@@ -211,12 +212,12 @@ for (r in 1:B) {
   for (q in 1:20) {
     for (i in 1:n) {
       for (j in (fi[i]+1):T) {
-        if (wnew[i,j] == 0 && j < la[i]) {
+        if (is.na(wnew[i,j]) == TRUE && j < la[i]) {
           k = min(which(wnew[i,j:T] > 0))-1
           m = (k*(wnew[i,j-1] + mu[j-1] + wnew[i,j+k]) - sum(mu[(j):(j+k-1)]))/(k+1) 
           s = sqrt(k*sm^2/(k+1))
           wnew[i,j] = rnorm(1, mean = m, sd = s) 
-        } else if (wnew[i,j] == 0 && j > la[i]) {
+        } else if (is.na(wnew[i,j]) == TRUE && j > la[i]) {
           wnew[i,j] = wnew[i,j-1] + mu[j-1] + sm*rnorm(1)
         } else {
           wnew[i,j] = wnew[i,j]
@@ -232,7 +233,7 @@ sapply(param.mi, quantile, 0.975)
 
 
 #computational comparisons
-sim <- sim_open(parameters = parameters, N=400, T=6, initial.cov = list(mu=15, sd=2))
+sim <- sim_open(parameters = parameters, N=512, T=4, initial.cov = list(mu=15, sd=2))
 x <- sim$x 
 w <- sim$w
 microbenchmark('HMM' = {
